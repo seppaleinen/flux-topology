@@ -109,6 +109,8 @@ def resolve_edges(apps: list[App], flux_root: Path) -> tuple[list[Edge], list[Wa
                     ))
 
     # Resolve external-ref edges
+    # Note: Unresolved external refs are NOT warnings — they represent
+    # legitimate external infrastructure/SaaS hosts not in the flux/ tree.
     for app in apps:
         for ref in app.refs:
             if ref.kind == "external":
@@ -122,12 +124,8 @@ def resolve_edges(apps: list[App], flux_root: Path) -> tuple[list[Edge], list[Wa
                             type="external-ref",
                             evidence=f"External host: {ref.raw}",
                         ))
-                else:
-                    warnings.append(Warning(
-                        app=app.id,
-                        kind="broken-ref",
-                        detail=f"External ref '{ref.raw}' has no matching app",
-                    ))
+                # Unresolved external refs produce NO edge and NO warning
+                # (they represent external dependencies outside the flux/ tree)
 
     return edges, warnings
 
@@ -298,6 +296,10 @@ def _resolve_external_ref(host: str, index: ResolutionIndex) -> str | None:
          declares ``*.labb.site``).
 
     Returns the target app id, or ``None`` if unresolvable.
+
+    Note: Unresolved external hosts are intentionally left untracked — they
+    represent external infrastructure/SaaS dependencies outside the flux/
+    tree and are NOT treated as broken-ref warnings.
     """
     # 1. Exact match.
     if host in index.ingress_exact:
