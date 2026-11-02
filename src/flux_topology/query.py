@@ -23,8 +23,8 @@ from .cache import (
     write_cache,
 )
 from .discovery import discover_apps
+from .edges import build_wiring_graph, resolve_edges
 from .extract import extract_app_data
-from .edges import resolve_edges, build_wiring_graph
 from .models import WiringGraph
 
 FreshnessState = Literal["NO_CACHE", "STALE", "FRESH", "CORRUPT"]
@@ -541,3 +541,97 @@ def query_check_freshness(flux_root: Path, *, json_out: bool = False) -> int:
     else:
         print(text)
     return exit_code
+
+
+def query_viz(
+    flux_root: Path,
+    out_path: Path | None = None,
+    domain: str | None = None,
+    app_id: str | None = None,
+    edge_type: str | None = None,
+    json_out: bool = False,
+    open_in_browser: bool = False,
+) -> int:
+    """Visualise the topology graph as an interactive HTML file.
+
+    Args:
+        flux_root: Path to the flux/ directory
+        out_path: Output HTML file path (default: <fluxroot>/.fluxtop/topology.html)
+        domain: Optional domain filter
+        app_id: Optional app focus (1-hop neighbours)
+        edge_type: Optional edge type filter
+        json_out: If True, emit JSON payload to stdout instead of HTML
+        open_in_browser: If True, open the HTML in the default browser
+
+    Returns:
+        0 = success, 1 = stale/corrupt/not-found/extra-missing, 2 = usage error
+    """
+    code = _check_root(flux_root, json_out)
+    if code is not None:
+        return code
+
+    code, graph = _graph_or_exit(flux_root, json_out)
+    if code:
+        return code
+    assert graph is not None
+
+    # Check for render extra
+    try:
+        from .viz import build_payload, render_html
+    except ImportError:
+        if json_out:
+            print(json.dumps({
+                "error": "missing-render-extra",
+                "message": 'Install the visualization extra: pip install "flux-topology[render]"'
+            }))
+        else:
+            print('Install the visualization extra: pip install "flux-topology[render]"')
+        return 1
+
+    # Build the visualization payload
+    payload = build_payload(graph, domain=domain, app=app_id, edge_type=edge_type)
+    payload["built_at"] = graph.built_at
+    payload["root"] = str(flux_root)
+
+    if json_out:
+        # Emit just the payload (without internal fields)
+        json_payload = {
+            "nodes": payload["nodes"],
+            "edges": payload["edges"],
+            "filtered": payload.get("filtered"),
+        }
+        print(json.dumps(json_payload))
+        return 0
+
+    # Determine output path
+    if out_path is None:
+        out_path = flux_root / ".fluxtop" / "topology.html"
+
+    # Render the HTML (may raise FileNotFoundError if assets missing)
+    try:
+        html = render_html(payload)
+    except FileNotFoundError as e:
+        if json_out:
+            print(json.dumps({
+                "error": "missing-render-extra",
+                "message": str(e)
+            }))
+        else:
+            print(str(e))
+        return 1
+
+    # Write the file
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(html, encoding="utf-8")
+
+    print(f"Topology written to {out_path}")
+
+    # Optionally open in browser
+    if open_in_browser:
+        try:
+            import webbrowser
+            webbrowser.open(f"file://{out_path}")
+        except OSError as e:
+            print(f"Warning: Could not open browser: {e}", file=sys.stderr)
+
+    return 0

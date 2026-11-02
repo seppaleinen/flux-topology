@@ -46,10 +46,27 @@ Use the CLI only for queries that need computation over the whole graph:
 | `flux-topology find-refs <pattern>` | Regex search for references across all apps |
 | `flux-topology app-card <app>` | Full card for one app |
 | `flux-topology check-freshness` | Check if the cache is fresh/stale/absent (never rebuilds) |
+| `flux-topology viz` | Interactive HTML visualization of the topology graph |
 
 Trace options: `--direction out|in|both` (default `out`) and `--depth N`
 (default 5). All commands accept `[dir]` (default `.`) and `--json` for
 machine-readable output.
+
+## Visualization
+
+The `viz` subcommand requires the visualization extra:
+
+```bash
+pip install "flux-topology[render]"
+```
+
+It produces a self-contained HTML file (default: `<fluxroot>/.fluxtop/topology.html`)
+that can be opened directly in a browser. Options include:
+- `--domain NAME` — filter to one domain
+- `--app ID` — focus on one app and its 1-hop neighbours
+- `--type TYPE` — filter edges to one type (dependsOn, dns-ref, external-ref)
+- `--open` — open in the default browser after writing
+- `--json` — emit JSON payload instead of HTML
 
 ## Build on change
 

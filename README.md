@@ -32,9 +32,21 @@ from `flux/` in the working directory.
 | `find-refs <pattern> [dir] [--json]` | Regex search for references across all apps |
 | `app-card <app> [dir] [--json]` | Full card for one app: workloads, services, edges |
 | `check-freshness [dir] [--json]` | Check if the topology cache is up to date (never rebuilds) |
+| `viz [dir] [--out FILE] [--domain NAME] [--app ID] [--type TYPE] [--open] [--json]` | Interactive HTML visualization of the topology graph |
 
 `[dir]` defaults to `.`. A directory is resolved to its `flux/` subdirectory
 when present; otherwise the directory itself is treated as the flux root.
+
+## Optional visualization dependency
+
+The `viz` subcommand requires the visualization extra:
+
+```bash
+pip install "flux-topology[render]"
+```
+
+This includes vendored vis-network JavaScript for rendering interactive graphs.
+All other commands work without this extra.
 
 ## Exit codes
 
@@ -71,6 +83,12 @@ flux-topology app-card apps/radarr
 
 # Freshness check (exit codes 0/1/3)
 flux-topology check-freshness
+
+# Interactive visualization (requires render extra)
+flux-topology viz
+flux-topology viz --domain apps
+flux-topology viz --app apps/backend --open
+flux-topology viz --type dns-ref --json
 ```
 
 ## How it works

@@ -22,6 +22,9 @@ dependencies = [
     "PyYAML>=6.0",
 ]
 
+[project.optional-dependencies]
+render = []  # Vendored JS included; this is a placeholder for documentation
+
 [project.urls]
 Homepage = "https://github.com/seppaleinen/flux-topology-mcp"
 Repository = "https://github.com/seppaleinen/flux-topology-mcp"
@@ -39,6 +42,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/flux_topology"]
+artifacts = [
+    "src/flux_topology/viz/assets/vis-network.min.js",
+    "src/flux_topology/viz/assets/vis-network.min.css",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

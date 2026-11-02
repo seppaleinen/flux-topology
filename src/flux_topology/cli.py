@@ -1,9 +1,10 @@
-"""Console entry point: flux-topology build/map/trace/find-refs/app-card/check-freshness."""
+"""Console entry point: flux-topology build/map/trace/find-refs/app-card/check-freshness/viz."""
 
 from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from .cache import is_cache_fresh
 from .query import (
@@ -13,6 +14,7 @@ from .query import (
     query_find_refs,
     query_map,
     query_trace,
+    query_viz,
     resolve_flux_root,
 )
 
@@ -70,6 +72,25 @@ def _cmd_check_freshness(args: argparse.Namespace) -> int:
     return query_check_freshness(
         resolve_flux_root(args.directory),
         json_out=args.json_out,
+    )
+
+
+def _cmd_viz(args: argparse.Namespace) -> int:
+    """Visualize the topology as an interactive HTML graph."""
+
+    flux_root = resolve_flux_root(args.directory)
+
+    # Determine output path
+    out_path = Path(args.out) if args.out else None
+
+    return query_viz(
+        flux_root,
+        out_path=out_path,
+        domain=args.domain,
+        app_id=args.app,
+        edge_type=args.type,
+        json_out=args.json_out,
+        open_in_browser=args.open,
     )
 
 
@@ -189,6 +210,53 @@ def main() -> None:
     check_freshness_parser.add_argument("--json", action="store_true", dest="json_out",
                                        help="Emit JSON instead of markdown")
     check_freshness_parser.set_defaults(func=_cmd_check_freshness)
+
+    # viz subcommand
+    viz_parser = subparsers.add_parser(
+        "viz",
+        help="Visualize topology as an interactive HTML graph",
+    )
+    viz_parser.add_argument(
+        "directory",
+        nargs="?",
+        default=".",
+        help="Repository root directory (default: current directory)",
+    )
+    viz_parser.add_argument(
+        "--out",
+        metavar="FILE",
+        help="Output HTML file path (default: <fluxroot>/.fluxtop/topology.html)",
+    )
+    viz_parser.add_argument(
+        "--domain",
+        metavar="NAME",
+        help="Filter nodes to show only apps in this domain",
+    )
+    viz_parser.add_argument(
+        "--app",
+        dest="app",
+        metavar="ID",
+        help="Focus mode: show only this app and its 1-hop neighbours",
+    )
+    viz_parser.add_argument(
+        "--type",
+        metavar="TYPE",
+        dest="type",
+        choices=["dependsOn", "dns-ref", "external-ref"],
+        help="Filter edges to show only edges of this type",
+    )
+    viz_parser.add_argument(
+        "--open",
+        action="store_true",
+        help="Open the HTML file in the default browser after writing",
+    )
+    viz_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_out",
+        help="Emit JSON payload instead of HTML",
+    )
+    viz_parser.set_defaults(func=_cmd_viz)
 
     args = parser.parse_args()
     raise SystemExit(args.func(args))
