@@ -129,3 +129,15 @@ class TestExtraction:
         app = self._get_app("radarr")
         # radarr templates/service.yaml should define a Service
         assert isinstance(app.services, list)
+
+
+def test_extract_decomposition_contract():
+    """GAP-08: exact decomposition of extract_app_data is unspecified."""
+    pytest.skip(
+        "GAP-08: the contract requires extract_app_data be 'split into focused "
+        "functions' but does not name them, give their signatures, or define "
+        "the seam between orchestrator and helpers. The tests assert against "
+        "the *current* helper names and will break on any rename the "
+        "architect approves — that is expected, but the contract itself is "
+        "silent on the target shape."
+    )

@@ -1,4 +1,4 @@
-# Research Brief: Architectural Cleanup for flux-topology v0.3.8
+# Closure Report: Architectural Cleanup for flux-topology v0.3.9
 
 ## Objective
 Perform architectural cleanup, test coverage expansion, and code simplification for the flux-topology Python project while preserving CLI interface and exit codes.
@@ -23,7 +23,10 @@ Perform architectural cleanup, test coverage expansion, and code simplification 
 
 ### 5. Dead/Incorrect Code ✅ FIXED
 - Removed `extract_app_data_with_crux()` (was never called)
-- Kept `WiringGraph.compute_fingerprint()` as it's used by spec tests for testing fingerprint behavior
+- Note: `WiringGraph.compute_fingerprint(yaml_files: list[str])` and `cache.compute_fingerprint(flux_root: Path)` are **distinct functions** with different signatures and behaviors. Both are actively used in production:
+     - `WiringGraph.compute_fingerprint()` hashes an explicit list of file paths (used by spec tests)
+     - `cache.compute_fingerprint()` walks a directory tree and hashes file contents (used by query.py and cache.py)
+     - The duplication is real but the functions serve different callers; a future refactor could consolidate them with a single entry point.
 
 ### 6. Mixed Output Logic ✅ FIXED
 - **Location**: `query.py`
