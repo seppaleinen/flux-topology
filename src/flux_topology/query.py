@@ -21,6 +21,7 @@ from .cache import (
     read_cached_fingerprint,
     read_wiring_graph,
     write_cache,
+    is_fresh_with_uncommitted,
 )
 from .discovery import discover_apps
 from .edges import build_wiring_graph, resolve_edges
@@ -116,11 +117,14 @@ def _check_root(flux_root: Path, json_out: bool) -> int | None:
     return 1
 
 
-def _graph_or_exit(flux_root: Path, json_out: bool) -> tuple[int, WiringGraph | None]:
+def _graph_or_exit(flux_root: Path, json_out: bool) -> tuple[int, WiringGraph | None, str | None]:
     """Freshness gate shared by map/trace/find-refs/app-card.
 
-    Returns (exit_code, graph). A nonzero exit_code means the caller should
+    Returns (exit_code, graph, working_tree_warning). A nonzero exit_code means the caller should
     return immediately; otherwise proceed with the FRESH graph.
+
+    Also checks for uncommitted changes in the working tree and surfaces a
+    warning when the cache is fresh but files have been modified.
     """
     state, graph = ensure_ready(flux_root)
 
@@ -134,17 +138,36 @@ def _graph_or_exit(flux_root: Path, json_out: bool) -> tuple[int, WiringGraph | 
             print(json.dumps({"status": "stale"}))
         else:
             print(_STALE_NOTICE)
-        return 1, None
+        return 1, None, None
 
     if state == "CORRUPT":
         if json_out:
             print(json.dumps({"status": "corrupt"}))
         else:
             print(_CORRUPT_NOTICE)
-        return 1, None
+        return 1, None, None
 
     assert state == "FRESH", f"unexpected freshness state {state!r}"
-    return 0, graph
+
+    # Check for uncommitted changes while fingerprint matches (hybrid freshness)
+    is_fresh, has_uncommitted = is_fresh_with_uncommitted(flux_root)
+    if has_uncommitted and not is_fresh:
+        # Fallback: the fingerprint check may have missed changes on systems
+        # where git status is more accurate; force rebuild.
+        if json_out:
+            print(json.dumps({"status": "stale", "notice": "Working tree has uncommitted changes; cache may be stale"}))
+        else:
+            print(_STALE_NOTICE)
+            print("Working tree has uncommitted changes; cache may be stale")
+        return 1, None, None
+
+    # Cache is fresh; warn about working tree changes but serve anyway (non-blocking)
+    working_tree_warning = None
+    if has_uncommitted:
+        working_tree_warning = "Working tree has uncommitted changes; cache may be stale"
+        if not json_out:
+            print(f"⚠ {working_tree_warning}")
+    return 0, graph, working_tree_warning
 
 
 def _not_found(app_id: str, graph: WiringGraph, json_out: bool) -> int:
@@ -164,7 +187,7 @@ def query_map(flux_root: Path, *, json_out: bool = False) -> int:
     if code is not None:
         return code
 
-    code, graph = _graph_or_exit(flux_root, json_out)
+    code, graph, wt_warning = _graph_or_exit(flux_root, json_out)
     if code:
         return code
     assert graph is not None
@@ -186,6 +209,8 @@ def query_map(flux_root: Path, *, json_out: bool = False) -> int:
                 f"[{w['app']}] {w['kind']}: {w['detail']}" for w in graph.warnings
             ],
         }
+        if wt_warning:
+            payload["working_tree_warning"] = wt_warning
         print(json.dumps(payload))
         return 0
 
@@ -262,7 +287,7 @@ def query_trace(flux_root: Path, app_id: str, *, direction: str = "out",
     if code is not None:
         return code
 
-    code, graph = _graph_or_exit(flux_root, json_out)
+    code, graph, wt_warning = _graph_or_exit(flux_root, json_out)
     if code:
         return code
     assert graph is not None
@@ -311,6 +336,8 @@ def query_trace(flux_root: Path, app_id: str, *, direction: str = "out",
             "visited": visited_order,
             "edges": result_edges,
         }
+        if wt_warning:
+            payload["working_tree_warning"] = wt_warning
         print(json.dumps(payload))
         return 0
 
@@ -346,7 +373,7 @@ def query_find_refs(flux_root: Path, pattern: str, *, json_out: bool = False) ->
     if code is not None:
         return code
 
-    code, graph = _graph_or_exit(flux_root, json_out)
+    code, graph, wt_warning = _graph_or_exit(flux_root, json_out)
     if code:
         return code
     assert graph is not None
@@ -369,7 +396,10 @@ def query_find_refs(flux_root: Path, pattern: str, *, json_out: bool = False) ->
 
     if not matches:
         if json_out:
-            print(json.dumps({"pattern": pattern, "total": 0, "apps": {}}))
+            payload = {"pattern": pattern, "total": 0, "apps": {}}
+            if wt_warning:
+                payload["working_tree_warning"] = wt_warning
+            print(json.dumps(payload))
         else:
             print(f"No references found for pattern '{pattern}'")
         return 1
@@ -383,6 +413,8 @@ def query_find_refs(flux_root: Path, pattern: str, *, json_out: bool = False) ->
                 for app_id, refs in sorted(matches.items())
             },
         }
+        if wt_warning:
+            payload["working_tree_warning"] = wt_warning
         print(json.dumps(payload))
         return 0
 
@@ -415,7 +447,7 @@ def query_app_card(flux_root: Path, app_id: str, *, json_out: bool = False) -> i
     if code is not None:
         return code
 
-    code, graph = _graph_or_exit(flux_root, json_out)
+    code, graph, wt_warning = _graph_or_exit(flux_root, json_out)
     if code:
         return code
     assert graph is not None
@@ -435,6 +467,8 @@ def query_app_card(flux_root: Path, app_id: str, *, json_out: bool = False) -> i
             "edges_out": out_edges,
             "warnings": [f"[{w['kind']}] {w['detail']}" for w in app_warnings],
         }
+        if wt_warning:
+            payload["working_tree_warning"] = wt_warning
         print(json.dumps(payload))
         return 0
 
@@ -470,6 +504,13 @@ def query_app_card(flux_root: Path, app_id: str, *, json_out: bool = False) -> i
         lines.append("")
         for h in app["ingress_hosts"]:
             lines.append(f"- `{h}`")
+        lines.append("")
+
+    if app.get("crux"):
+        lines.append("## Crux")
+        lines.append("")
+        for c in app["crux"]:
+            lines.append(f"- {c}")
         lines.append("")
 
     if out_edges:
@@ -536,10 +577,24 @@ def query_check_freshness(flux_root: Path, *, json_out: bool = False) -> int:
         text = "Status: **CORRUPT** — fingerprint file missing, rebuild needed."
         exit_code = 1
 
+    # Check for working tree changes when fingerprint matches (hybrid freshness)
+    wt_warning = None
+    if state == "FRESH":
+        is_fresh, has_uncommitted = is_fresh_with_uncommitted(flux_root)
+        if has_uncommitted:
+            wt_warning = "Working tree has uncommitted changes; cache may be stale"
+
     if json_out:
-        print(json.dumps({"status": _JSON_STATUS[state]}))
+        payload = {"status": _JSON_STATUS[state]}
+        if wt_warning:
+            payload["working_tree_warning"] = wt_warning
+        print(json.dumps(payload))
     else:
+        # Always print the status text
         print(text)
+        # Then print warning if any
+        if wt_warning:
+            print(f"⚠ {wt_warning}")
     return exit_code
 
 
@@ -570,7 +625,7 @@ def query_viz(
     if code is not None:
         return code
 
-    code, graph = _graph_or_exit(flux_root, json_out)
+    code, graph, wt_warning = _graph_or_exit(flux_root, json_out)
     if code:
         return code
     assert graph is not None
@@ -600,6 +655,8 @@ def query_viz(
             "edges": payload["edges"],
             "filtered": payload.get("filtered"),
         }
+        if wt_warning:
+            json_payload["working_tree_warning"] = wt_warning
         print(json.dumps(json_payload))
         return 0
 

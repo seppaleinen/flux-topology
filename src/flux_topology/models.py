@@ -80,6 +80,7 @@ class App:
     flux_objects: list[FluxObject] = field(default_factory=list)
     encrypted: bool = False
     refs: list[Ref] = field(default_factory=list)
+    crux: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -94,6 +95,7 @@ class App:
             "flux_objects": [f.to_dict() for f in self.flux_objects],
             "encrypted": self.encrypted,
             "refs": [r.to_dict() for r in self.refs],
+            "crux": list(self.crux),
         }
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
+import subprocess
 from pathlib import Path
 
 from .models import App, Edge, Warning, WiringGraph
@@ -114,9 +114,57 @@ def _ensure_gitignore(flux_root: Path) -> None:
 
 def is_cache_fresh(flux_root: Path) -> bool:
     """Check if the cache is fresh (fingerprint matches)."""
-    if not (flux_root / FLUXTOP_DIR / WIRING_FILE).exists():
-        return False
     return fingerprint_matches(flux_root)
+
+
+def is_fresh_with_uncommitted(flux_root: Path) -> tuple[bool, bool]:
+    """Check if cache is fresh and whether working tree has uncommitted changes.
+
+    Returns (is_fresh, has_uncommitted) where:
+    - is_fresh: True if fingerprint matches (existing behavior)
+    - has_uncommitted: True if git status shows modified/untracked files in flux/
+    """
+    is_fresh = fingerprint_matches(flux_root)
+    has_uncommitted = _check_working_tree_dirty(flux_root)
+    return is_fresh, has_uncommitted
+
+
+def _check_working_tree_dirty(flux_root: Path) -> bool:
+    """Check if flux_root has uncommitted changes (modified or untracked files).
+
+    Uses `git status --short` on the flux/ directory to detect:
+    - M  (modified in working tree)
+    - ?? (untracked)
+    - A  (staged but unmerged)
+    - D  (deleted)
+    - R  (renamed)
+    - etc.
+
+    Returns True if any such file is found; False if clean or git unavailable.
+    """
+    repo_root = flux_root.parent  # flux_root is flux/, repo is its parent
+    try:
+        result = subprocess.run(
+            ["git", "status", "--short", str(flux_root)],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        status_output = result.stdout.strip()
+        if not status_output:
+            return False
+        # Any line that isn't clean (e.g., "  " prefix) indicates a change
+        for line in status_output.split("\n"):
+            if not line:
+                continue
+            # git status --short format: "XY filename" where X=status, Y=staged
+            # "  file" means clean; anything else means modified/added/deleted/etc.
+            if line[:2] != "  ":
+                return True
+        return False
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return False
 
 
 def read_wiring_graph(flux_root: Path) -> WiringGraph | None:

@@ -93,6 +93,14 @@ def render_card(app: App, edges: list[Edge],
         lines.append("Contains SOPS-encrypted secrets")
         lines.append("")
 
+    # Crux: the handful of lines that carry the logic
+    if app.crux:
+        lines.append("## Crux")
+        lines.append("")
+        for c in app.crux:
+            lines.append(f"- {c}")
+        lines.append("")
+
     # Warnings for this app
     if warnings:
         app_warnings = [w for w in warnings if w.app == app.id]

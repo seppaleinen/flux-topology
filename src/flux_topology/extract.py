@@ -121,6 +121,9 @@ def extract_app_data(app: App, flux_root: Path) -> None:
     # Scan for refs
     _scan_refs(app, all_yaml_text, app_dir, flux_root)
 
+    # Crux: image, key env vars, and config knobs (~5 lines max).
+    _extract_crux(app, app_dir)
+
 
 def _extract_flux_object(app: App, doc: dict) -> None:
     """Extract Flux CRD objects from a YAML doc."""
@@ -355,4 +358,152 @@ def _scan_refs(app: App, all_yaml_text: list[tuple[str, str]],
 
 def extract_app(app: App, flux_root: Path) -> None:
     """Convenience wrapper: extract data and resolve refs."""
+    extract_app_data(app, flux_root)
+
+
+# ── Crux extraction ──────────────────────────────────────────────────────
+#
+# A "crux" is a handful of lines that actually carry the logic for an app:
+# the container image, key env vars, and a few config knobs.  Extracted from
+# the app's HelmRelease spec.values (and, for raw manifests, the pod spec).
+# Kept to ~5 lines per app so it stays a quick scan, not a dump.
+
+_CRUX_MAX = 5
+
+
+def _crux_add(app: App, line: str) -> None:
+    """Append a crux line, capped at _CRUX_MAX."""
+    if len(app.crux) < _CRUX_MAX:
+        app.crux.append(line)
+
+
+def _extract_crux_from_helmrelease(app: App, doc: dict) -> None:
+    """Pull image, env vars, and key config values from a HelmRelease."""
+    spec = doc.get("spec", {})
+    values = spec.get("values", {})
+    if not isinstance(values, dict):
+        return
+
+    # Container image (name + tag)
+    image = values.get("image", {})
+    if isinstance(image, dict):
+        repo = image.get("repository", "")
+        tag = image.get("tag", "")
+        if repo:
+            img_str = f"{repo}:{tag}" if tag else repo
+            _crux_add(app, f"image: {img_str}")
+
+    # Key environment variables (first 3-5)
+    env = values.get("env", [])
+    if isinstance(env, list):
+        for e in env[:4]:
+            if isinstance(e, dict):
+                name = e.get("name", "")
+                value = e.get("value", "")
+                if name:
+                    _crux_add(app, f"env: {name}={value}")
+
+    # Key config values: replicas, resource limits
+    for kind in ("deployment", "statefulset", "daemonset"):
+        block = values.get(kind, {})
+        if isinstance(block, dict):
+            replicas = block.get("replicas")
+            if replicas is not None:
+                _crux_add(app, f"{kind}.replicas: {replicas}")
+            resources = block.get("resources", {})
+            if isinstance(resources, dict):
+                limits = resources.get("limits", {})
+                if isinstance(limits, dict):
+                    cpu = limits.get("cpu", "")
+                    mem = limits.get("memory", "")
+                    if cpu or mem:
+                        parts = [p for p in (f"cpu={cpu}", f"mem={mem}") if p]
+                        _crux_add(app, f"{kind}.limits: {', '.join(parts)}")
+            break  # one workload block per app is enough for the crux
+
+
+def _extract_crux_from_raw(app: App, doc: dict) -> None:
+    """Pull image + env + replicas from a raw Kubernetes manifest."""
+    kind = doc.get("kind", "")
+    if kind not in ("Deployment", "StatefulSet", "DaemonSet"):
+        return
+
+    spec = doc.get("spec", {})
+    template = spec.get("template", {})
+    pod_spec = template.get("spec", {})
+    containers = pod_spec.get("containers", [])
+    if not containers:
+        return
+
+    c = containers[0]
+    image = c.get("image", "")
+    if image:
+        _crux_add(app, f"image: {image}")
+
+    env = c.get("env", [])
+    if isinstance(env, list):
+        for e in env[:4]:
+            if isinstance(e, dict):
+                name = e.get("name", "")
+                value = e.get("value", "")
+                if name:
+                    _crux_add(app, f"env: {name}={value}")
+
+    replicas = spec.get("replicas")
+    if replicas is not None:
+        _crux_add(app, f"replicas: {replicas}")
+
+    resources = c.get("resources", {})
+    if isinstance(resources, dict):
+        limits = resources.get("limits", {})
+        if isinstance(limits, dict):
+            cpu = limits.get("cpu", "")
+            mem = limits.get("memory", "")
+            if cpu or mem:
+                parts = [p for p in (f"cpu={cpu}", f"mem={mem}") if p]
+                _crux_add(app, f"limits: {', '.join(parts)}")
+
+
+def _extract_crux(app: App, app_dir: Path) -> None:
+    """Walk the app's HelmRelease files and raw manifests, collect crux lines."""
+    # HelmRelease files first — they carry the values-driven crux.
+    for f in sorted(app_dir.glob("*helmrelease*.yaml")):
+        docs = read_yaml_all(f)
+        for doc in docs:
+            if isinstance(doc, dict):
+                _extract_crux_from_helmrelease(app, doc)
+        if len(app.crux) >= _CRUX_MAX:
+            return
+
+    # Fall back to raw workload manifests (templates/ and loose files).
+    if len(app.crux) < _CRUX_MAX:
+        templates_dir = app_dir / "templates"
+        candidates: list[Path] = []
+        if templates_dir.is_dir():
+            candidates.extend(sorted(templates_dir.iterdir()))
+        for f in sorted(app_dir.iterdir()):
+            if f.is_file() and f.suffix in (".yaml", ".yml"):
+                if any(g in f.name.lower() for g in ("helmrelease", "kustomization",
+                                                     "kustomizeconfig", "secrets",
+                                                     "values", "configmap")):
+                    continue
+                candidates.append(f)
+        for f in candidates:
+            if not f.is_file():
+                continue
+            docs = read_yaml_all(f)
+            for doc in docs:
+                if isinstance(doc, dict):
+                    _extract_crux_from_raw(app, doc)
+            if len(app.crux) >= _CRUX_MAX:
+                return
+
+
+def extract_app_data_with_crux(app: App, flux_root: Path) -> None:
+    """Extract depth-B data AND the crux lines for an App in-place.
+
+    Same signature as extract_app_data but also populates app.crux.
+    """
+    app_dir = flux_root / app.path
+    _extract_crux(app, app_dir)
     extract_app_data(app, flux_root)
