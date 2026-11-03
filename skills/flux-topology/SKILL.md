@@ -19,7 +19,7 @@ A CLI + skill that builds a dependency and topology graph of a FluxCD GitOps rep
 
 ```bash
 pip install flux-topology
-npx skills add seppaleinen/flux-topology-mcp   # this skill
+npx skills add seppaleinen/flux-topology   # this skill
 ```
 
 No MCP server is required — `flux-topology` is a plain CLI.

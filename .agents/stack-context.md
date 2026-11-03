@@ -1,4 +1,4 @@
-# Stack Context for flux-topology-mcp
+# Stack Context for flux-topology
 
 **Language:** Python 3.12+
 **Package Manager:** hatchling (pyproject.toml)

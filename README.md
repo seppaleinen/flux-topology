@@ -1,6 +1,6 @@
 # flux-topology
 
-[![skills.sh](https://skills.sh/b/seppaleinen/flux-topology-mcp)](https://skills.sh/seppaleinen/flux-topology-mcp)
+[![skills.sh](https://skills.sh/b/seppaleinen/flux-topology)](https://skills.sh/seppaleinen/flux-topology)
 
 A CLI + agent skill that builds a dependency and topology graph of a
 Kubernetes/FluxCD GitOps repository by static analysis, so AI agents can
@@ -13,10 +13,10 @@ pip install flux-topology
 ```
 
 Optional — install the agent skill from
-[skills.sh](https://skills.sh/seppaleinen/flux-topology-mcp):
+[skills.sh](https://skills.sh/seppaleinen/flux-topology):
 
 ```bash
-npx skills add seppaleinen/flux-topology-mcp
+npx skills add seppaleinen/flux-topology
 ```
 
 No MCP server is required. Run the CLI from your GitOps repo root; it reads
@@ -121,8 +121,8 @@ on-demand via the CLI + skill. Re-push the rewritten skill via `skills.sh`.
 ## Development
 
 ```bash
-git clone https://github.com/seppaleinen/flux-topology-mcp.git
-cd flux-topology-mcp
+git clone https://github.com/seppaleinen/flux-topology.git
+cd flux-topology
 pip install -e ".[dev]"
 pytest
 ```

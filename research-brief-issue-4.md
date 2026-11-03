@@ -4,7 +4,7 @@
 > "To get an understanding of what the application does, it would help if I could
 > visually see what its gleaned." (issue body)
 
-- **Repo:** /Users/seppa/workspace/flux-topology-mcp (Python 3.12+, `src/flux_topology/`)
+- **Repo:** /Users/seppa/workspace/flux-topology (Python 3.12+, `src/flux_topology/`)
 - **Target repo:** /Users/seppa/workspace/fleet-infra/flux — 12 domains, 87 apps, 72 edges
   (26 `dependsOn`, 39 `dns-ref`, 7 `external-ref`), 0 warnings
 - **Domain:** dev

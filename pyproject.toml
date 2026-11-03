@@ -26,9 +26,9 @@ dependencies = [
 render = []  # Vendored JS included; this is a placeholder for documentation
 
 [project.urls]
-Homepage = "https://github.com/seppaleinen/flux-topology-mcp"
-Repository = "https://github.com/seppaleinen/flux-topology-mcp"
-Issues = "https://github.com/seppaleinen/flux-topology-mcp/issues"
+Homepage = "https://github.com/seppaleinen/flux-topology"
+Repository = "https://github.com/seppaleinen/flux-topology"
+Issues = "https://github.com/seppaleinen/flux-topology/issues"
 
 [project.scripts]
 flux-topology = "flux_topology.cli:main"

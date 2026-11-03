@@ -37,7 +37,7 @@ with 5 tools (`fluxtop_map`, `fluxtop_trace`, `fluxtop_find_refs`,
   targeted `jq` on `wiring.json`, never a full dump) with the binary reserved
   for computed queries.
 - **Install stays two-step** (`pip install flux-topology` +
-  `npx skills add seppaleinen/flux-topology-mcp`); this is a one-off scope for
+  `npx skills add seppaleinen/flux-topology`); this is a one-off scope for
   this tool, not a platform statement against MCP generally.
 
 ## Rationale

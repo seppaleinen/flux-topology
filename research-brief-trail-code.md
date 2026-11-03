@@ -9,7 +9,7 @@
 ## Refined Requirements
 
 - **Objective:** Understand what trail-code does and its core patterns
-- **Scope:** Compare with flux-topology-mcp, identify transferable ideas
+- **Scope:** Compare with flux-topology, identify transferable ideas
 - **Definition of Done:** Document findings with adoption recommendation
 
 ---
@@ -89,9 +89,9 @@ npm install -g @trailhq/trail-code && trail init
 
 ---
 
-## Comparison Table: Trail-Code vs flux-topology-mcp
+## Comparison Table: Trail-Code vs flux-topology
 
-| Aspect | Trail-Code | flux-topology-mcp |
+| Aspect | Trail-Code | flux-topology |
 |--------|------------|------------------|
 | **Language** | TypeScript/Node.js | Python |
 | **Parser** | tree-sitter (24 langs) | YAML parsing only (Kubernetes/Flux specific) |
@@ -129,13 +129,13 @@ npm install -g @trailhq/trail-code && trail init
 
 5. **Plain-Text Cache**
    - Trail-Code: `.trail/learnings/*.md` + `graft/*.md` + `graft/.graph/wiring.json`
-   - flux-topology-mcp: `.fluxtop/apps/*.md` + `.fluxtop/wiring.json`
+   - flux-topology: `.fluxtop/apps/*.md` + `.fluxtop/wiring.json`
 
 ---
 
 ## Differences
 
-| Dimension | Trail-Code | flux-topology-mcp |
+| Dimension | Trail-Code | flux-topology |
 |-----------|------------|-------------------|
 | **Scope** | Any code repo (source code) | FluxCD GitOps repos only (YAML) |
 | **Granularity** | Symbol/function level | App/directory level |
@@ -148,7 +148,7 @@ npm install -g @trailhq/trail-code && trail init
 
 ---
 
-## Transferable Ideas for flux-topology-mcp
+## Transferable Ideas for flux-topology
 
 ### High Value (Ready to Adopt)
 
@@ -159,7 +159,7 @@ npm install -g @trailhq/trail-code && trail init
    - Integration: `trail check` equivalent before commits
 
 2. **Hybrid Freshness with Working Tree Check**
-   - flux-topology-mcp already has fingerprint-based freshness
+   - flux-topology already has fingerprint-based freshness
    - Could add uncommitted change detection (like graft's working tree check)
    - Near-zero cost structural refresh before answering
 
@@ -198,7 +198,7 @@ npm install -g @trailhq/trail-code && trail init
    - Would be major rework; Python is working fine
 
 2. **General-Purpose Language Support**
-   - flux-topology-mcp is Flux-specific by design; generalizing would dilute focus
+   - flux-topology is Flux-specific by design; generalizing would dilute focus
 
 ---
 
@@ -247,7 +247,7 @@ The working tree freshness check from trail-code could be added:
 
 ### Do NOT Adopt
 
-1. **Tree-sitter integration** — flux-topology-mcp's scope is FluxCD YAMLs, not general code
+1. **Tree-sitter integration** — flux-topology's scope is FluxCD YAMLs, not general code
 2. **MCP server re-introduction** — contradicts ADR 0003's design decision
 3. **Full graft map architecture** — the symbol-level graph is overkill for GitOps topology
 
@@ -255,13 +255,13 @@ The working tree freshness check from trail-code could be added:
 
 ## Rationale
 
-Trail-code is fundamentally a **general-purpose code intelligence tool** for *any* codebase, while flux-topology-mcp is a **domain-specific GitOps topology analyzer** for FluxCD repositories. The transferable concepts are:
+Trail-code is fundamentally a **general-purpose code intelligence tool** for *any* codebase, while flux-topology is a **domain-specific GitOps topology analyzer** for FluxCD repositories. The transferable concepts are:
 
 1. **Knowledge retention** — learnings system prevents re-deriving decisions
 2. **Build-once freshness** — both use this pattern already
 3. **Plain-text cache** — both use markdown for human readability
 
-The graft/trail-code symbol-level graph is not directly applicable since flux-topology-mcp's value is its *domain-specific* understanding of FluxCD app relationships (dependsOn, DNS refs, ingress mappings). However, the learnings pattern would significantly enhance team collaboration around that domain knowledge.
+The graft/trail-code symbol-level graph is not directly applicable since flux-topology's value is its *domain-specific* understanding of FluxCD app relationships (dependsOn, DNS refs, ingress mappings). However, the learnings pattern would significantly enhance team collaboration around that domain knowledge.
 
 ---
 
@@ -283,8 +283,8 @@ None — this was a research-only task with no user interaction needed.
 
 1. Trail-Code GitHub: https://github.com/trailhq/Trail-Code
 2. Trail-Code README (fetched via webfetch)
-3. flux-topology-mcp source: `src/flux_topology/`
-4. flux-topology-mcp ADRs: `docs/adr/`
-5. flux-topology-mcp tests: `tests/test_resolution.py`
+3. flux-topology source: `src/flux_topology/`
+4. flux-topology ADRs: `docs/adr/`
+5. flux-topology tests: `tests/test_resolution.py`
 6. Hindsight knowledge pages: graft map, core concepts, component map
 7. opencode.json: MCP configuration showing `graft mcp` was previously used
