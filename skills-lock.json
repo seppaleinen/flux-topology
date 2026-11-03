@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "flux-topology": {
+      "source": "seppaleinen/flux-topology",
+      "sourceType": "github",
+      "skillPath": "skills/flux-topology/SKILL.md",
+      "computedHash": "b79f61fdc7ae93d22f3affb4d56de73874e8d7347a5ce387c4569a753b90d9f7"
+    }
+  }
+}
