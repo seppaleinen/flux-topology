@@ -4,8 +4,79 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from typing import TypedDict
 
+# =============================================================================
+# TypedDict definitions for type-safe graph data (replaces list[dict])
+# =============================================================================
+
+class WorkloadDict(TypedDict, total=False):
+    """TypedDict for workload data after to_dict()."""
+    kind: str
+    name: str
+    replicas: int
+
+
+class ServiceDict(TypedDict, total=False):
+    """TypedDict for service data after to_dict()."""
+    name: str
+    namespace: str
+    port: str
+    selector: dict[str, str]
+
+
+class FluxObjectDict(TypedDict, total=False):
+    """TypedDict for FluxObject data after to_dict()."""
+    kind: str
+    name: str
+    namespace: str
+
+
+class RefDict(TypedDict, total=False):
+    """TypedDict for reference data after to_dict()."""
+    raw: str
+    kind: str
+    resolved_to: str
+    file: str
+
+
+class AppDict(TypedDict, total=False):
+    """TypedDict for app data in WiringGraph.apps."""
+    id: str
+    name: str
+    domain: str
+    path: str
+    signals: list[str]
+    workloads: list[WorkloadDict]
+    services: list[ServiceDict]
+    ingress_hosts: list[str]
+    flux_objects: list[FluxObjectDict]
+    encrypted: bool
+    refs: list[RefDict]
+    crux: list[str]
+
+
+class EdgeDict(TypedDict, total=False):
+    """TypedDict for edge data in WiringGraph.edges.
+
+    Note: Python uses 'from_' for the field name; JSON uses 'from'.
+    """
+    from_: str  # Maps to "from" in JSON
+    to: str
+    type: str
+    evidence: str
+
+
+class WarningDict(TypedDict, total=False):
+    """TypedDict for warning data in WiringGraph.warnings."""
+    app: str
+    kind: str
+    detail: str
+
+
+# =============================================================================
+# Dataclass definitions for extraction and building
+# =============================================================================
 
 @dataclass
 class Workload:
@@ -13,8 +84,8 @@ class Workload:
     name: str
     replicas: int | None = None
 
-    def to_dict(self) -> dict:
-        d: dict = {"kind": self.kind, "name": self.name}
+    def to_dict(self) -> WorkloadDict:
+        d: WorkloadDict = {"kind": self.kind, "name": self.name}
         if self.replicas is not None:
             d["replicas"] = self.replicas
         return d
@@ -27,8 +98,8 @@ class Service:
     port: str | None = None
     selector: dict[str, str] = field(default_factory=dict)
 
-    def to_dict(self) -> dict:
-        d: dict = {"name": self.name}
+    def to_dict(self) -> ServiceDict:
+        d: ServiceDict = {"name": self.name}
         if self.namespace:
             d["namespace"] = self.namespace
         if self.port:
@@ -44,8 +115,8 @@ class FluxObject:
     name: str
     namespace: str | None = None
 
-    def to_dict(self) -> dict:
-        d: dict = {"kind": self.kind, "name": self.name}
+    def to_dict(self) -> FluxObjectDict:
+        d: FluxObjectDict = {"kind": self.kind, "name": self.name}
         if self.namespace:
             d["namespace"] = self.namespace
         return d
@@ -58,8 +129,8 @@ class Ref:
     resolved_to: str | None = None
     file: str | None = None
 
-    def to_dict(self) -> dict:
-        d: dict = {"raw": self.raw, "kind": self.kind}
+    def to_dict(self) -> RefDict:
+        d: RefDict = {"raw": self.raw, "kind": self.kind}
         if self.resolved_to:
             d["resolved_to"] = self.resolved_to
         if self.file:
@@ -82,7 +153,7 @@ class App:
     refs: list[Ref] = field(default_factory=list)
     crux: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> AppDict:
         return {
             "id": self.id,
             "name": self.name,
@@ -106,13 +177,20 @@ class Edge:
     type: str  # dependsOn, dns-ref, external-ref
     evidence: str
 
-    def to_dict(self) -> dict:
-        return {
+    def to_dict(self) -> EdgeDict:
+        """Return dict with 'from' key for JSON serialization.
+
+        Note: EdgeDict uses 'from_' as the field name due to Python keyword,
+        but the returned dict uses 'from' for JSON compatibility.
+        """
+        d: EdgeDict = {
             "from": self.from_app,
             "to": self.to_app,
             "type": self.type,
             "evidence": self.evidence,
         }
+        # Convert to dict for JSON compatibility (TypedDict accepts both keys)
+        return {k: v for k, v in d.items()}
 
 
 @dataclass
@@ -121,7 +199,8 @@ class Warning:
     kind: str  # broken-ref, unresolved-dependsOn, etc.
     detail: str
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> WarningDict:
+        """Return dict for JSON serialization."""
         return {"app": self.app, "kind": self.kind, "detail": self.detail}
 
 
@@ -132,9 +211,9 @@ class WiringGraph:
     built_at: str = ""
     fingerprint: dict = field(default_factory=dict)
     domains: list[dict] = field(default_factory=list)
-    apps: list[dict] = field(default_factory=list)
-    edges: list[dict] = field(default_factory=list)
-    warnings: list[dict] = field(default_factory=list)
+    apps: list[AppDict] = field(default_factory=list)  # Type-safe!
+    edges: list[EdgeDict] = field(default_factory=list)  # Type-safe!
+    warnings: list[WarningDict] = field(default_factory=list)  # Type-safe!
 
     def to_dict(self) -> dict:
         return {
@@ -163,8 +242,28 @@ class WiringGraph:
 
     @staticmethod
     def compute_fingerprint(yaml_files: list[str]) -> dict:
-        """Compute fingerprint from sorted list of YAML file paths."""
+        """Compute fingerprint from file contents.
+
+        The fingerprint is based on the SHA-256 hash of the **contents** of
+        the specified YAML files, not their paths. This ensures that changes
+        to file contents are detected even if file names stay the same.
+
+        Args:
+            yaml_files: List of file paths (as strings) to hash.
+
+        Returns:
+            Dict with 'files' count and 'sha256' hash of contents.
+        """
         sha = hashlib.sha256()
-        for f in sorted(yaml_files):
-            sha.update(f.encode())
-        return {"files": len(yaml_files), "sha256": sha.hexdigest()}
+        count = 0
+        from pathlib import Path
+
+        for f_str in sorted(yaml_files):
+            f = Path(f_str)
+            try:
+                content = f.read_bytes()
+                sha.update(content)
+                count += 1
+            except (OSError, UnicodeDecodeError):
+                continue
+        return {"files": count, "sha256": sha.hexdigest()}

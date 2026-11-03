@@ -7,9 +7,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from .models import App, Edge, Warning, WiringGraph
 from .cards import render_card
-
+from .models import App, Edge, Warning, WiringGraph
 
 FLUXTOP_DIR = ".fluxtop"
 APPS_DIR = "apps"

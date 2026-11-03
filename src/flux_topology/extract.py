@@ -5,20 +5,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .models import App, Workload, Service, FluxObject, Ref
-from .yamlsafe import read_yaml, read_yaml_all, read_text
-
-
-# Known Flux CRD kinds for flux_objects extraction
-FLUX_CRD_KINDS = {"HelmRelease", "Kustomization", "HelmRepository",
-                  "GitRepository", "OCIRepository", "HelmChart",
-                  "Alert", "Provider", "Receiver"}
-
-FLUX_API_PREFIXES = ("helm.toolkit.fluxcd.io", "kustomize.toolkit.fluxcd.io",
-                     "source.toolkit.fluxcd.io", "notification.toolkit.fluxcd.io",
-                     "image.toolkit.fluxcd.io")
-
-SOPS_MARKERS = ("ENC[AES256_GCM,", "sops:", "SOPS:")
+from .constants import FLUX_API_PREFIXES, FLUX_CRD_KINDS, SOPS_MARKERS
+from .models import App, FluxObject, Ref, Service, Workload
+from .yamlsafe import read_text, read_yaml_all
 
 # Reference patterns
 DNS_FULL_RE = re.compile(r"\w[\w.-]*\.svc\.cluster\.local")
@@ -33,6 +22,10 @@ INGRESSROUTE_HOST_RE = re.compile(
     r"Host\(`([^`]+)`\)|host:\s*['\"]?([^'\"\s,]+)['\"]?"
 )
 HOSTNAME_RE = re.compile(r"hostname:\s*['\"]?([^'\"\s,]+)['\"]?")
+
+
+# Re-export constants for backward compatibility and inspection
+__all__ = ["FLUX_API_PREFIXES", "FLUX_CRD_KINDS", "SOPS_MARKERS"]
 
 
 def extract_app_data(app: App, flux_root: Path) -> None:
@@ -499,11 +492,4 @@ def _extract_crux(app: App, app_dir: Path) -> None:
                 return
 
 
-def extract_app_data_with_crux(app: App, flux_root: Path) -> None:
-    """Extract depth-B data AND the crux lines for an App in-place.
 
-    Same signature as extract_app_data but also populates app.crux.
-    """
-    app_dir = flux_root / app.path
-    _extract_crux(app, app_dir)
-    extract_app_data(app, flux_root)

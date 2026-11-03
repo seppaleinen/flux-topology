@@ -2,32 +2,20 @@
 
 from __future__ import annotations
 
-import fnmatch
-import re
 from pathlib import Path
 
-from .models import App, FluxObject
-from .yamlsafe import read_yaml, read_yaml_all, read_text
-
+from .constants import FLUX_API_PREFIXES, FLUX_CRD_KINDS, SOPS_MARKERS
+from .models import App
+from .yamlsafe import read_text, read_yaml, read_yaml_all
 
 # HelmRelease filename pattern (case-insensitive glob)
 HR_GLOB = "*helmrelease*.yaml"
 
-# Known Flux CRD kinds
-FLUX_CRD_KINDS = {"HelmRelease", "Kustomization", "HelmRepository",
-                  "GitRepository", "OCIRepository", "HelmChart",
-                  "Alert", "Provider", "Receiver"}
-
 # Kubernetes workload kinds
 WORKLOAD_KINDS = {"Deployment", "StatefulSet", "DaemonSet", "CronJob"}
 
-# SOPS encryption markers
-SOPS_MARKERS = ("ENC[AES256_GCM,", "sops:", "SOPS:")
-
-# Flux CRD apiVersion prefixes
-FLUX_API_PREFIXES = ("helm.toolkit.fluxcd.io", "kustomize.toolkit.fluxcd.io",
-                     "source.toolkit.fluxcd.io", "notification.toolkit.fluxcd.io",
-                     "image.toolkit.fluxcd.io")
+# Re-export constants for backward compatibility and inspection
+__all__ = ["FLUX_API_PREFIXES", "FLUX_CRD_KINDS", "SOPS_MARKERS"]
 
 
 def find_app_signals(directory: Path) -> tuple[bool, list[str]]:

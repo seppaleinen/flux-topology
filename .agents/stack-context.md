@@ -1,39 +1,31 @@
-# Stack Context for flux-topology
+# Stack Context
 
-**Language:** Python 3.12+
-**Package Manager:** hatchling (pyproject.toml)
+Generated: 2026-11-03
 
-## Pipeline Variables
+## Stack
+- **Language**: Python 3.12+
+- **Framework**: None (standalone library)
+- **Build**: hatchling
+- **Lint**: ruff check . (or uv tool run ruff check .)
+- **Typecheck**: N/A (uses Python 3.12 union syntax)
+- **Test**: pytest
+- **Format**: ruff format
 
-| Variable | Command | Purpose |
-|----------|---------|---------|
-| `LINT_CMD` | `ruff check .` | Linting |
-| `TEST_CMD` | `pytest` | Test execution |
-| `FORMAT_CMD` | `ruff format --check .` | Formatting check |
+## Skill to Load
+`skill(name="python-skill")`
 
-## Source Structure
-- **Source:** `src/flux_topology/` (src layout)
-- **Tests:** `tests/` directory
-- **Entry Point:** `flux_topology.cli:main` (via pyproject.toml scripts)
-
-## Key Files
-- CLI: `src/flux_topology/cli.py`
-- Query layer: `src/flux_topology/query.py`
-- Models: `src/flux_topology/models.py`
-- Cache: `src/flux_topology/cache.py`
-- Edges: `src/flux_topology/edges.py`
-- Discovery: `src/flux_topology/discovery.py`
-- Extract: `src/flux_topology/extract.py`
-- Cards: `src/flux_topology/cards.py`
-
-## Dependencies
-- Core: `PyYAML>=6.0`
-- Dev: `pytest>=8.0`
-- Optional (for viz): vendored vis-network UMD JS + template
+## Secondary Languages
+- JavaScript (vendored vis-network for visualization)
 
 ## Conventions
-- Args: `[dir]` defaults to `.`, resolved to `<dir>/flux` when present
-- Exit codes: 0=success, 1=error, 2=usage, 3=no-cache (check-freshness)
-- `--json` outputs JSON to stdout, no progress/notice text leaks
-- Cache in `.fluxtop/` (gitignored)
-- Default output for viz: `<fluxroot>/.fluxtop/topology.html`
+- Error handling: return codes for CLI (0/1/2/3)
+- Module structure: src/flux_topology/ package
+- Naming: snake_case for functions, PascalCase for dataclasses
+- Tests: tests/ directory with pytest, self-contained fixtures
+
+## CI Gates
+- pytest 8.0+
+- Python 3.12+
+
+## Override
+None

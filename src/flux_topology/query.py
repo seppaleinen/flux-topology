@@ -18,10 +18,10 @@ from typing import Literal, cast
 from .cache import (
     compute_fingerprint,
     freshness_state,
+    is_fresh_with_uncommitted,
     read_cached_fingerprint,
     read_wiring_graph,
     write_cache,
-    is_fresh_with_uncommitted,
 )
 from .discovery import discover_apps
 from .edges import build_wiring_graph, resolve_edges
@@ -461,17 +461,28 @@ def query_app_card(flux_root: Path, app_id: str, *, json_out: bool = False) -> i
     app_warnings = [w for w in graph.warnings if w.get("app") == app_id]
 
     if json_out:
-        payload = {
-            "app": app,
-            "edges_in": in_edges,
-            "edges_out": out_edges,
-            "warnings": [f"[{w['kind']}] {w['detail']}" for w in app_warnings],
-        }
-        if wt_warning:
-            payload["working_tree_warning"] = wt_warning
-        print(json.dumps(payload))
-        return 0
+        return _render_json(app, in_edges, out_edges, app_warnings, wt_warning)
+    return _render_human(app, in_edges, out_edges, app_warnings)
 
+
+def _render_json(app: dict, in_edges: list[dict], out_edges: list[dict],
+                 app_warnings: list[dict], wt_warning: str | None) -> int:
+    """Render app card as JSON and print to stdout."""
+    payload = {
+        "app": app,
+        "edges_in": in_edges,
+        "edges_out": out_edges,
+        "warnings": [f"[{w['kind']}] {w['detail']}" for w in app_warnings],
+    }
+    if wt_warning:
+        payload["working_tree_warning"] = wt_warning
+    print(json.dumps(payload))
+    return 0
+
+
+def _render_human(app: dict, in_edges: list[dict], out_edges: list[dict],
+                  app_warnings: list[dict]) -> int:
+    """Render app card as markdown and print to stdout."""
     # Human mode: exact server.py fluxtop_app_card rendering.
     lines = []
     lines.append(f"# App: {app['name']}")

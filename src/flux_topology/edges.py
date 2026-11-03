@@ -5,17 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .models import App, Edge, Warning, WiringGraph, FluxObject
-from .yamlsafe import read_yaml, read_text
+from .constants import FLUX_API_PREFIXES
+from .models import App, Edge, Warning, WiringGraph
+from .yamlsafe import read_yaml_all
 
-
-# Known Flux CRD kinds
-FLUX_CRD_KINDS = {"HelmRelease", "Kustomization", "HelmRepository",
-                  "GitRepository", "OCIRepository", "HelmChart"}
-
-FLUX_API_PREFIXES = ("helm.toolkit.fluxcd.io", "kustomize.toolkit.fluxcd.io",
-                     "source.toolkit.fluxcd.io", "notification.toolkit.fluxcd.io",
-                     "image.toolkit.fluxcd.io")
+# Re-export for backward compatibility
+__all__ = ["FLUX_API_PREFIXES"]
 
 
 def build_lookup_index(apps: list[App]) -> dict[str, App]:
@@ -45,7 +40,7 @@ def resolve_edges(apps: list[App], flux_root: Path) -> tuple[list[Edge], list[Wa
 
         # Check all YAML files for dependsOn
         for f in sorted(app_dir.rglob("*.yaml")):
-            docs = _read_yaml_docs(f)
+            docs = read_yaml_all(f)
             for doc in docs:
                 if not isinstance(doc, dict):
                     continue
@@ -128,24 +123,6 @@ def resolve_edges(apps: list[App], flux_root: Path) -> tuple[list[Edge], list[Wa
                 # (they represent external dependencies outside the flux/ tree)
 
     return edges, warnings
-
-
-def _read_yaml_docs(path: Path) -> list[dict]:
-    """Read all YAML docs from a file, tolerating errors."""
-    try:
-        text = path.read_text(errors="replace")
-    except OSError:
-        return []
-
-    import re
-    cleaned = re.sub(r"\{\{.*?\}\}", "", text, flags=re.DOTALL)
-
-    import yaml
-    try:
-        docs = list(yaml.safe_load_all(cleaned))
-        return [d for d in docs if isinstance(d, dict)]
-    except yaml.YAMLError:
-        return []
 
 
 @dataclass
